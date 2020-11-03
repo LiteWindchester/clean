@@ -1,13 +1,11 @@
 {
   "name": "name",
   "version": "1.0.0",
-  "description": "description",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Windchester <LiteGamesChannel@gmail.com>",
-  "license": "ISC",
+  "private": true,
   "browserslist": "> 0.25%, not dead",
   "sass": {
     "includePaths": [
