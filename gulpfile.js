@@ -1,25 +1,14 @@
 let gulp = require('gulp'),
-    circularDependency = require('gulp-circular-dependency'),
-    rollup = require('gulp-better-rollup'),
     named = require('vinyl-named'),
-    terser = require('gulp-terser'),
     webpack = require('webpack-stream'),
-    sass = require('gulp-sass'),
-    gutil = require('gulp-util'),
+    sass = require('gulp-dart-sass'),
     sourcemaps = require('gulp-sourcemaps'),
     postcss = require('gulp-postcss'),
     autoprefixer = require('autoprefixer'),
     cssnano = require('cssnano'),
-    babel = require('gulp-babel'),
-    rollupBabel = require('rollup-plugin-babel'),
-    uglify = require('gulp-uglify'),
     rename = require('gulp-rename'),
-    resolve = require('rollup-plugin-node-resolve'),
-    commonjs = require('rollup-plugin-commonjs'),
     browserSync = require('browser-sync').create(),
     through = require('through2'),
-    rollupPostcss = require('rollup-plugin-postcss'),
-    inject = require('@rollup/plugin-inject'),
     paths = {
       sass: ['./src/sass/main.scss'],
       css: './src/css',
@@ -30,44 +19,6 @@ let gulp = require('gulp'),
       html: './src/wp-content/themes/sante/*.html'
     };
     sass.compiler = require('sass');
-    
-  // gulp.task('babelifyJS', function() {
-  //   return gulp.src(paths.js)
-  //     .pipe(sourcemaps.init())
-  //     // .pipe(circularDependency())
-  //     .pipe(rollup({
-  //       plugins: [
-  //         rollupBabel({
-  //           presets: [['@babel/env', { "useBuiltIns": "usage", "corejs": "3.6" }]],
-  //           plugins: ["@babel/plugin-proposal-class-properties"],
-  //           sourceMaps: true,
-  //           exclude: 'node_modules/**'
-  //         }),
-  //         resolve(),
-  //         commonjs(),
-  //         rollupPostcss({
-  //           plugins: [
-  //             autoprefixer({overrideBrowserslist: ['last 9 version'], grid: "autoplace"}),
-  //             cssnano()
-  //           ]
-  //         }),
-  //         inject({
-  //           $: 'jquery',
-  //           jQuery: 'jquery',
-  //           'window.jQuery': 'jquery',
-  //           'window.$': 'jquery'
-  //         })
-  //       ] },
-  //       'umd'
-  //     ))
-  //     // .pipe(terser())
-  //     .pipe(rename({ suffix: ".min", extname: '.js' }))
-  //     .pipe(sourcemaps.write('./'))
-  //     .pipe(gulp.dest('./src/js/'))
-  //     .pipe(browserSync.reload({
-  //       stream: true
-  //     }));
-  // });
 
 gulp.task('babelifyJS', function() {
   return gulp.src(paths.js)
@@ -124,25 +75,25 @@ gulp.task('babelifyJS', function() {
     }))
 });
 
-// Задача для компиляции из SASS в CSS. + автопрефикс + Минификация
+// SASS/SCSS -> CSS. + autoprefixer + minification
 gulp.task('minsass', function(){
   var postCssPlugins = [
     autoprefixer({overrideBrowserslist: ['last 9 version'], grid: "autoplace"}),
-    cssnano()
+    // cssnano()
   ];
   return gulp.src(paths.sass)
-    .pipe(sourcemaps.init()) // говорим, что хотим сурсмапы
-    .pipe(sass().on('error', sass.logError)) // превращаем SASS в CSS
-    .pipe(postcss(postCssPlugins)) // автопрефикс + минификация
+    .pipe(sourcemaps.init()) // enable sourcemaps
+    .pipe(sass().on('error', sass.logError)) // SASS/SCSS -> CSS
+    .pipe(postcss(postCssPlugins)) // autoprefixer + minification
     .pipe(sourcemaps.write('./'))
-    .pipe(gulp.dest(paths.css)) // располагаем получившйися файл в папку
+    .pipe(gulp.dest(paths.css)) // put the result file in the css folder
     .pipe(browserSync.reload({
       stream: true
     }))
 });
 
-// Задача, следящая за изменениями в файле стилей.
-gulp.task('watcher', function() { // Если что-то изменилось, запускаем взлом жопы
+// Watch file changes
+gulp.task('watcher', function() {
   // gulp.watch(paths.sass, gulp.series('minsass', 'deployCss')); 
   // gulp.watch(paths.js, gulp.series('babelifyJS', 'deployJs'));
 
@@ -152,7 +103,7 @@ gulp.task('watcher', function() { // Если что-то изменилось, 
     server: {
       baseDir: './src'
     },
-    browser: 'chrome'
+    browser: false
   });
 
   gulp.watch(paths.sass, gulp.series('minsass')); 
