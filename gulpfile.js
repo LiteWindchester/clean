@@ -16,7 +16,7 @@ let gulp = require('gulp'),
         // 'node_modules/babel-polyfill/dist/polyfill.js',
         './src/js/main.js'
       ],
-      html: './src/wp-content/themes/sante/*.html'
+      html: './src/*.html'
     };
     sass.compiler = require('sass');
 
