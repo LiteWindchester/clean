@@ -10,7 +10,7 @@ let gulp = require('gulp'),
     browserSync = require('browser-sync').create(),
     through = require('through2'),
     paths = {
-      sass: ['./src/sass/main.scss'],
+      sass: ['./src/sass/**/*.{scss,sass,css}'],
       css: './src/css',
       js: [
         // 'node_modules/babel-polyfill/dist/polyfill.js',
