@@ -1,4 +1,7 @@
-let gulp = require('gulp'),
+let { task, series, src, dest, watch, parallel } = require('gulp'),
+    ftp = require( 'vinyl-ftp' ),
+    gutil = require( 'gulp-util' ),
+    uglify = require('gulp-uglify-es').default,
     named = require('vinyl-named'),
     webpack = require('webpack-stream'),
     sass = require('gulp-dart-sass'),
@@ -6,12 +9,14 @@ let gulp = require('gulp'),
     postcss = require('gulp-postcss'),
     autoprefixer = require('autoprefixer'),
     cssnano = require('cssnano'),
+    cleanCSS = require('gulp-clean-css'),
     rename = require('gulp-rename'),
     browserSync = require('browser-sync').create(),
     through = require('through2'),
     paths = {
       sass: ['./src/sass/**/*.{scss,sass,css}'],
       css: './src/css',
+      cssFiles: ['./src/css/**/*.css'],
       js: [
         // 'node_modules/babel-polyfill/dist/polyfill.js',
         './src/js/main.js'
@@ -20,8 +25,10 @@ let gulp = require('gulp'),
     };
     sass.compiler = require('sass');
 
-gulp.task('babelifyJS', function() {
-  return gulp.src(paths.js)
+const { ftpConfig, ftpDir } = require('./config.js')
+
+function babelifyJS (done) {
+  src(paths.js)
     .pipe(named())
     .pipe(webpack({
       config: {
@@ -58,44 +65,68 @@ gulp.task('babelifyJS', function() {
         ]
       }
     }))
-    .pipe(sourcemaps.init({loadMaps: true}))
-    .pipe(through.obj(function (file, enc, cb) {
+    .pipe(sourcemaps.init({ loadMaps: true }))
+    .pipe(through.obj(function(file, enc, cb) {
       // Dont pipe through any source map files as it will be handled
       // by gulp-sourcemaps
-      const isSourceMap = /\.map$/.test(file.path);
-      if (!isSourceMap) this.push(file);
-      cb();
+      const isSourceMap = /\.map$/.test(file.path)
+      if (!isSourceMap) this.push(file)
+      cb()
     }))
-    // .pipe(uglify())
+    .pipe(uglify())
     .pipe(rename({ suffix: ".min", extname: '.js' }))
     .pipe(sourcemaps.write('./'))
-    .pipe(gulp.dest('./src/js/'))
+    .pipe(dest('./src/js/'))
     .pipe(browserSync.reload({
       stream: true
     }))
-});
+  done()
+}
+task('babelifyJS', babelifyJS)
 
 // SASS/SCSS -> CSS. + autoprefixer + minification
-gulp.task('minsass', function(){
-  var postCssPlugins = [
+function compileSass(done) {
+  let postCssPlugins = [
     autoprefixer({overrideBrowserslist: ['last 9 version'], grid: "autoplace"}),
-    // cssnano()
   ];
-  return gulp.src(paths.sass)
-    .pipe(sourcemaps.init()) // enable sourcemaps
-    .pipe(sass().on('error', sass.logError)) // SASS/SCSS -> CSS
-    .pipe(postcss(postCssPlugins)) // autoprefixer + minification
-    .pipe(sourcemaps.write('./'))
-    .pipe(gulp.dest(paths.css)) // put the result file in the css folder
-    .pipe(browserSync.reload({
-      stream: true
-    }))
-});
+  src(paths.sass)
+      .pipe(sourcemaps.init()) // enable sourcemaps
+      .pipe(sass().on('error', sass.logError)) // SASS/SCSS -> CSS
+      .pipe(postcss(postCssPlugins)) // autoprefixer + minification
+      .pipe(sourcemaps.write('./'))
+      .pipe(dest(paths.css)) // put the result file in the css folder
+
+      .pipe(cleanCSS())
+      .pipe(rename({ basename: 'main', suffix: ".min", extname: '.css' }))
+      .pipe(dest(paths.css)) // put the minified file in the css folder
+
+      .pipe(browserSync.reload({
+        stream: true
+      }))
+  done()
+}
+task('compileSass', compileSass)
+
+function upload(done) {
+  const connection = ftp.create({
+    ...ftpConfig,
+    parallel: 10,
+    log:      gutil.log
+  })
+
+  const globs = [
+    'src/**',
+  ]
+
+  src(globs).pipe(connection.dest(ftpDir))
+  done()
+}
+task('upload', upload)
 
 // Watch file changes
-gulp.task('watcher', function() {
-  // gulp.watch(paths.sass, gulp.series('minsass', 'deployCss')); 
-  // gulp.watch(paths.js, gulp.series('babelifyJS', 'deployJs'));
+function watcher() {
+  // watch(paths.sass, series('minsass', 'deployCss'));
+  // watch(paths.js, series('babelifyJS', 'deployJs'));
 
   browserSync.init({
     notify: false,
@@ -106,9 +137,12 @@ gulp.task('watcher', function() {
     browser: false
   });
 
-  gulp.watch(paths.sass, gulp.series('minsass')); 
-  gulp.watch(paths.js, gulp.series('babelifyJS'));
-  // gulp.watch(paths.html).on('change', browserSync.reload);
-});
+  watch(paths.sass, series('compileSass'));
+  watch(paths.js, series('babelifyJS'));
+  // watch(paths.html).on('change', browserSync.reload);
+}
+task('watcher', watcher)
 
-gulp.task('default', gulp.series('minsass', 'babelifyJS', 'watcher'));
+exports.dev = series(parallel('compileSass', 'babelifyJS'), 'watcher')
+exports.prod = parallel('compileSass', 'babelifyJS')
+exports.deploy = series(parallel('compileSass', 'babelifyJS'), upload)
