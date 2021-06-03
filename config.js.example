@@ -1,0 +1,7 @@
+exports.ftpConfig = {
+    host:     'host/ip',
+    user:     'ftp login',
+    password: 'ftp password',
+}
+
+exports.ftpDir = '/www/site.com'
