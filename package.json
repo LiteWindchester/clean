@@ -4,8 +4,11 @@
   "main": "index.js",
   "scripts": {
     "dev": "gulp dev",
+    "watch": "npm run dev",
     "prod": "gulp prod",
+    "upload": "gulp upload",
     "deploy": "gulp deploy"
+
   },
   "private": true,
   "browserslist": "> 0.25%, not dead",
