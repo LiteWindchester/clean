@@ -1,4 +1,5 @@
 let { task, series, src, dest, watch, parallel } = require('gulp'),
+    nunjucks = require('gulp-nunjucks'),
     ftp = require( 'vinyl-ftp' ),
     gutil = require( 'gulp-util' ),
     uglify = require('gulp-uglify-es').default,
@@ -8,7 +9,6 @@ let { task, series, src, dest, watch, parallel } = require('gulp'),
     sourcemaps = require('gulp-sourcemaps'),
     postcss = require('gulp-postcss'),
     autoprefixer = require('autoprefixer'),
-    cssnano = require('cssnano'),
     cleanCSS = require('gulp-clean-css'),
     rename = require('gulp-rename'),
     browserSync = require('browser-sync').create(),
@@ -21,7 +21,7 @@ let { task, series, src, dest, watch, parallel } = require('gulp'),
         // 'node_modules/babel-polyfill/dist/polyfill.js',
         './src/js/main.js'
       ],
-      html: './src/*.html'
+      njk: './src/templates/*.njk'
     };
     sass.compiler = require('sass');
 
@@ -59,8 +59,8 @@ function babelifyJS (done) {
             jQuery: 'jquery',
             'window.jQuery': 'jquery',
             'window.$': 'jquery',
-            moment: 'moment',
-            'window.moment': 'moment'
+          //   moment: 'moment',
+          //   'window.moment': 'moment'
           })
         ]
       }
@@ -87,7 +87,7 @@ task('babelifyJS', babelifyJS)
 // SASS/SCSS -> CSS. + autoprefixer + minification
 function compileSass(done) {
   let postCssPlugins = [
-    autoprefixer({overrideBrowserslist: ['last 9 version'], grid: "autoplace"}),
+    autoprefixer({overrideBrowserslist: ['last 9 version']}),
   ];
   src(paths.sass)
       .pipe(sourcemaps.init()) // enable sourcemaps
@@ -106,6 +106,21 @@ function compileSass(done) {
   done()
 }
 task('compileSass', compileSass)
+
+// Nunjucks -> HTML
+function nunjucksCompile(done) {
+  src(paths.njk)
+      // .pipe(nunjucksRender({
+      //   // path: ['src/templates/'] // String or Array
+      // }))
+      .pipe(nunjucks.compile())
+      .pipe(dest('src'))
+      .pipe(browserSync.reload({
+        stream: true
+      }))
+  done()
+}
+task('nunjucksCompile', nunjucksCompile)
 
 function upload(done) {
   const connection = ftp.create({
@@ -134,15 +149,16 @@ function watcher() {
     server: {
       baseDir: './src'
     },
-    browser: false
+    open: false
   });
 
   watch(paths.sass, series('compileSass'));
   watch(paths.js, series('babelifyJS'));
+  watch(['./src/templates/**/*.njk'], series('nunjucksCompile'));
   // watch(paths.html).on('change', browserSync.reload);
 }
 task('watcher', watcher)
 
-exports.dev = series(parallel('compileSass', 'babelifyJS'), 'watcher')
-exports.prod = parallel('compileSass', 'babelifyJS')
-exports.deploy = series(parallel('compileSass', 'babelifyJS'), upload)
+exports.dev = series(parallel('compileSass', 'babelifyJS', 'nunjucksCompile'), 'watcher')
+exports.prod = parallel('compileSass', 'babelifyJS', 'nunjucksCompile')
+exports.deploy = series(parallel('compileSass', 'babelifyJS', 'nunjucksCompile'), upload)
